@@ -18,10 +18,11 @@ A QR code on the fence at each court. Scan it to check in. The site shows who's 
 ## Core Principles
 
 1. **Zero friction.** No accounts. No app install. No email. Scan a QR, tap one or two buttons, done. If it takes more than 5 seconds it won't get used.
-2. **Public benefit by default.** Anyone can register a court. Anyone can use any court. The data is open. The site exists to make a small public good slightly better.
-3. **Self-correcting.** Entries expire automatically. Stale data clears itself. No moderators required.
-4. **Near-zero operating cost.** The whole thing should run on free tiers indefinitely. If it gets popular, costs stay in pennies-per-month range.
-5. **Organic scale.** Anyone with a printer and a lamination pouch can spread it. No central rollout.
+2. **Mobile-first, dead simple UI.** The phone is *the* device — users land here from a QR scan in a parking lot. One column. Big tap targets. One primary action per screen. No sidebars, no modals stacked on modals, no hover-only interactions, no drag-drop. Desktop layout is whatever mobile gives you with more whitespace. Polish ranks below clarity.
+3. **Public benefit by default.** Anyone can register a court. Anyone can use any court. The data is open. The site exists to make a small public good slightly better.
+4. **Self-correcting.** Entries expire automatically. Stale data clears itself. No moderators required.
+5. **Near-zero operating cost.** The whole thing should run on free tiers indefinitely. If it gets popular, costs stay in pennies-per-month range.
+6. **Organic scale.** Anyone with a printer and a lamination pouch can spread it. No central rollout.
 
 ## User Flows
 
@@ -167,10 +168,8 @@ Worker is a V8 isolate. Spins up cold, dies fast. No persistent disk, no TCP poo
 - *Vercel + Next.js*: ergonomic but soft lock-in, and we want to avoid Vercel-specific dependencies.
 - *Rails / long-running server*: pays for idle. Defeats the cost goal.
 - *Postgres (Neon, Supabase) on Workers*: needs a connection pooler. Extra hop, extra service.
-- *Turso*: very capable libSQL host, slightly bigger free tier, more portable. Rejected in favor of D1 because we're already committed to Cloudflare and the single-platform ergonomics (one dashboard, one bill, native binding, no URL/auth-token plumbing) outweigh the portability advantage for this project.
 - *Upstash Redis with TTL keys*: nice fit for the queue, but adds a second DB. SQLite with `expires_at` filter is just as good at this scale.
 - *Prisma*: too heavy on D1, codegen step, schema DSL, "Early Access" migration story.
-- *Kysely*: was the choice for one round, traded out for Drizzle once we realized `kysely-codegen` requires a native binary (`better-sqlite3`) that fights pnpm's build sandbox. Drizzle's schema-in-TS gives us auto types without any codegen step, no native binary.
 - *`drizzle-kit`*: rejected. Its JSON snapshot files inflate PR diffs and have a learning curve we don't need. We use only `drizzle-orm` (the runtime half) and let wrangler own migrations as plain SQL.
 - *Tailwind / shadcn / UI library*: rejected. Hides CSS behind class strings, locks us to a build pipeline, and the project's surface area is small enough that 100 lines of plain CSS covers everything.
 - *Adding accounts*: would let users see their own history across devices, but the friction cost is huge for the marginal benefit. Skip.
@@ -178,7 +177,7 @@ Worker is a V8 isolate. Spins up cold, dies fast. No persistent disk, no TCP poo
 ### Known gotchas
 
 - **No `node:` builtins** in Worker runtime. Web-Standard APIs only (`crypto.randomUUID()` etc.). Pick edge-friendly libs.
-- **Worker bundle size**: 1MB free / 10MB paid. TanStack Start + Drizzle + libSQL fits comfortably; avoid heavy deps.
+- **Worker bundle size**: 1MB free / 10MB paid. TanStack Start + Drizzle + D1 binding fits comfortably; avoid heavy deps.
 - **TanStack Start is still maturing** (pre-1.0 churn possible). Trade-off accepted in exchange for a cleaner agnostic stack.
 - **Embedded Turso replicas** require disk → don't apply on Workers. Just use remote HTTPS; latency is fine.
 

@@ -125,8 +125,9 @@ Two files change in lockstep. Same PR.
 
 - Migrations are never renamed or edited after applied.
 - One migration per logical change. No bundles.
-- D1 + wrangler does not support down migrations. To "rollback" locally use `pnpm db:reset`. In production: always forward — write a new migration.
-- **Never run `drizzle-kit`.** No JSON snapshots in this repo, ever.
+- **Forward-only, by policy.** No `down` blocks, no rollback command. Local rollback = `pnpm db:reset`. Production rollback = a new forward migration that reverses the previous one.
+- **Schema.ts is hand-maintained**, not auto-generated. When a migration changes the DB, edit `src/db/schema.ts` to match in the same PR.
+- **Never run `drizzle-kit`.** No JSON snapshots, no schema generation tools, no `pull`/`push`/`generate`/`migrate` rituals.
 
 ### Schema + migration pairing example
 
@@ -175,7 +176,38 @@ This replaces background workers and cron. State is honest by query, not by cloc
 - Add new selectors to `src/styles.css`. Keep file scannable; group related rules.
 - Use existing CSS variables for color/spacing. Add new variables only when a value will reuse.
 - No utility classes. If you need flex/grid, write a class with a meaning (`.actions`, `.card-grid`).
-- Mobile-first. The phone is the primary device — most users land via QR scan.
+
+## Mobile-first UX (non-negotiable)
+
+The phone is *the* device. Most users land here from a QR scan. Every screen must work at **375×667**. Desktop = mobile + whitespace.
+
+### Layout
+- One column. Max width ~640px, centered.
+- No sidebars, no two-pane views, no horizontal scroll.
+
+### Tap targets
+- Buttons ≥ 44×44px (use generous padding, not just font size).
+- ≥ 8px between tappable elements.
+
+### Interaction
+- **No hover-only interactions.** Hover = decoration.
+- **No drag-drop, no keyboard shortcuts as primary path.**
+- **One primary action per screen.** Secondary actions visually subordinate.
+- **No multi-step modals.** No popups that hide important content.
+
+### Forms
+- Native `<input>`, `<select>`, `<textarea>`. No custom widgets.
+- Use the right `type=` (`tel`, `number`, `email`, etc.) so mobile keyboards adapt.
+- One field per row. `<label>` always — placeholder is not a label.
+- Body text ≥ 16px (prevents iOS zoom-on-focus).
+
+### Forbidden
+- Carousels.
+- Hamburger menus on a 4-route app.
+- Floating action buttons.
+- Splash screens.
+- Cookie banners (we don't track anything).
+- Anything requiring a tooltip or tutorial to use.
 
 ## What "dead simple" means in practice
 

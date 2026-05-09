@@ -11,12 +11,13 @@ A dead-simple, anonymous, near-zero-cost queue tracker for public tennis courts.
 These are non-negotiable. If a request would violate one, **stop and flag the conflict before proceeding**.
 
 1. **No Tailwind, no CSS-in-JS, no UI libraries (shadcn, Material, Chakra, etc.).** Plain CSS in `src/styles.css`. Semantic HTML elements over class-based component soup.
-2. **No ORMs.** Drizzle and Prisma are explicitly out. Database access is raw SQL via `@libsql/client` (or whatever lightweight wrapper is chosen — see `Open decisions` below).
+2. **Drizzle ORM only** (`drizzle-orm/d1`, runtime half only). No `drizzle-kit`. No Prisma. No other ORMs or query builders. No raw SQL inside app code (`src/server/`, `src/routes/`).
 3. **No new dependencies without justification.** A new `dependencies` or `devDependencies` entry requires a one-line note in the PR explaining why nothing already in the project covers it. If it's a small utility, write 30 lines instead.
 4. **No background workers, no cron, no queue services.** State stays honest via lazy promotion at read time (see VISION.md).
 5. **No accounts.** Anonymous identity = random UUID in httpOnly cookie. No email, password, OAuth, or third-party auth provider.
 6. **No vendor lock-in if avoidable.** Hosting target is Cloudflare Pages today, but framework + DB + libs should remain swappable. Prefer Web-Standard APIs (`fetch`, `crypto.randomUUID`) over Node or platform-specific ones.
 7. **Friction is the enemy.** A new code path that adds a tap, a confirmation, or a wait time on the user's main flow needs an explicit principle-level reason. Default answer is no.
+8. **Mobile-first, dead simple.** Phone is the primary device — most landings come from a QR scan. Design for 375×667 first. Big tap targets (≥44px). One column. One primary action per screen. No sidebars, no nested modals, no hover-only interactions, no drag-drop. Desktop is whatever mobile gives you with more whitespace.
 
 ## Stack (locked)
 
@@ -44,7 +45,7 @@ src/
 │   ├── courts.tsx           ← /courts
 │   ├── c.$courtId.tsx       ← /c/:courtId
 │   └── c.$courtId.print.tsx ← /c/:courtId/print
-├── server/                  ← server functions, ONLY consumer of the Kysely instance
+├── server/                  ← server functions, ONLY consumer of the Drizzle instance
 │   ├── courts.ts            ← registerCourt, getCourt, listCourts
 │   ├── queue.ts             ← checkIn, signOut, extendStay
 │   └── session.ts           ← anonymous cookie helpers
@@ -72,6 +73,61 @@ public/
 - **HTML** uses semantic elements: `<main>`, `<header>`, `<nav>`, `<section>`, `<form>`, `<label>`, `<button>`. Reach for ARIA only when semantics aren't enough.
 - **CSS** uses CSS variables for the few accent colors (see `styles.css`). Class names are short (`.btn`, `.btn-primary`, `.actions`, `.muted`).
 - **Imports** use the `#/` path alias for `src/` (configured in `package.json` imports map and `tsconfig.json`).
+
+## UX rules (read before editing routes / styles)
+
+The phone is *the* device. Every screen must work cleanly at **375×667**. Desktop is "mobile + whitespace." Anything that violates the following is a defect, not a stylistic preference.
+
+### Layout
+
+- One column. No sidebars, no two-pane views.
+- Max content width ~640px (`max-width: var(--max)` in styles.css). Centered.
+- Sticky/floating UI is the exception, not the default — only for the primary action when scroll matters.
+- No layout that requires horizontal scrolling on phone.
+
+### Tap targets + spacing
+
+- Buttons + tappable controls ≥ 44×44px (Apple HIG minimum). Padding generously rather than relying on font size.
+- Vertical spacing between tappable elements ≥ 8px.
+- Don't put two destructive/important actions adjacent — finger fat is real.
+
+### Interaction
+
+- **No hover-only interactions.** Hover is decoration, never the only path to information.
+- **No drag-drop.** Touch + drag conflicts with scroll on phones.
+- **No keyboard shortcuts as a primary path.** Phones don't have keyboards.
+- **No multi-step modals** or modals that open modals.
+- **One primary action per screen.** Secondary actions are visually subordinate (border-only buttons, smaller, or in an overflow).
+- **No popups, tooltips, or hover cards** that hide important content. Show it inline or not at all.
+
+### Forms
+
+- Native inputs (`<input>`, `<select>`, `<textarea>`) over custom widgets. Mobile keyboards know what to do with them.
+- Use proper `type=` (`tel`, `number`, `email`, `url`) — phones swap to the right keyboard.
+- One field per row. No two-column form layouts.
+- `<label>` always; either visually attached or `for=`-linked. Placeholder is not a label.
+- Submit button below the form, full-width on mobile.
+
+### Type + density
+
+- Body text 16px minimum (prevents iOS zoom-on-focus).
+- Headings prominent enough to read at arm's length.
+- Don't pack the screen — generous whitespace beats information density.
+
+### Loading / state
+
+- Skeletons or spinners only when load is genuinely > 200ms. Otherwise just render.
+- Don't replace whole-page content with a spinner — preserve layout, swap inner state.
+- Empty states have one clear next action.
+
+### Forbidden (UX-side blockers — see also `simplicity-reviewer`)
+
+- Carousels.
+- Hamburger menus on a 4-route app.
+- Floating action buttons that obscure list content on scroll.
+- Anything requiring a tutorial or tooltip to use.
+- Splash screens.
+- Cookie banners (we don't use tracking cookies — only the session UUID, which is functional, not analytics).
 
 ## Drizzle guardrails (read before touching `src/db/` or `migrations/`)
 
@@ -157,14 +213,25 @@ import type { Court, NewCourt, QueueEntry, NewQueueEntry } from '#/db/schema'
 
 Steps 2 and 3 must agree. Reviewer agent + simplicity-reviewer flag PRs that touch one without the other.
 
-### Rollback
+### Migration philosophy: forward-only, Rails-style
 
-D1 + wrangler doesn't support automatic down migrations — there is no `db:rollback` command. To roll back locally:
+The pattern is **Rails ActiveRecord migrations minus `down` blocks**. Map:
 
-- Reset everything: `pnpm db:reset` (deletes local D1 SQLite, re-applies all migrations).
-- Or write a new forward migration that undoes the previous change, plus mirror the schema change in `src/db/schema.ts`.
+| Rails | Here |
+|---|---|
+| `db/migrate/000N_thing.rb` | `migrations/000N_thing.sql` |
+| `rake db:migrate` | `pnpm db:migrate` |
+| `rake db:reset` | `pnpm db:reset` |
+| `rake db:rollback` | (intentionally missing — see below) |
+| `db/schema.rb` (auto-generated) | `src/db/schema.ts` (hand-maintained) |
 
-In production, **always forward**. If a deployed migration is wrong, ship a new migration that fixes it.
+**Two deliberate departures from Rails:**
+
+1. **No `down` migrations, no rollback command.** This isn't a tooling limitation we're working around — it's a policy. Modern industry consensus (and Rails teams in practice) is that production rollback is risky and rarely run. The fix for a bad migration is *another* forward migration that reverses it.
+   - Local dev rollback = `pnpm db:reset` (wipes local D1, replays all). Practical equivalent of `rake db:rollback` for solo dev.
+   - Prod rollback = new forward migration. Always.
+2. **Schema.ts is hand-maintained, not generated.** Rails generates `db/schema.rb` from the live DB. We hand-maintain `src/db/schema.ts` to match the migrations. The alternative tools (drizzle-kit pull, kysely-codegen) drag in native-binary peer deps and tooling complexity that don't justify themselves at our scale (2-3 tables, low churn).
+   - Discipline: any PR touching `migrations/*.sql` must also touch `src/db/schema.ts`. Reviewer agent enforces.
 
 ### Query rules
 
@@ -172,7 +239,7 @@ In production, **always forward**. If a deployed migration is wrong, ship a new 
 - **camelCase in TypeScript, snake_case in SQL.** `CamelCasePlugin` is enabled once in `client.ts`. App code never sees `num_courts` — it's `numCourts`.
 - **Transactions are shallow.** One per server function, no nesting.
 - **One server function = one logical operation.** If a server fn juggles five queries and conditional branching, split it.
-- **No raw SQL in app code.** Use Kysely's `.sql\`...\`` template only inside `src/db/` if absolutely needed.
+- **No raw SQL in app code.** Use Drizzle's `sql\`...\`` template only inside `src/db/` if absolutely needed.
 
 ## Key models
 

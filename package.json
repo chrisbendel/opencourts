@@ -1,0 +1,58 @@
+{
+  "name": "opencourts",
+  "private": true,
+  "type": "module",
+  "imports": {
+    "#/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "vite dev --port 4040",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "format": "biome format",
+    "lint": "biome lint",
+    "check": "biome check",
+    "deploy": "pnpm build && wrangler deploy",
+    "db:new": "wrangler d1 migrations create opencourts",
+    "db:migrate": "wrangler d1 migrations apply opencourts --local",
+    "db:migrate:prod": "wrangler d1 migrations apply opencourts --remote",
+    "db:status": "wrangler d1 migrations list opencourts --local",
+    "db:status:prod": "wrangler d1 migrations list opencourts --remote",
+    "db:codegen": "scripts/codegen.sh",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate && pnpm db:codegen"
+  },
+  "dependencies": {
+    "@cloudflare/vite-plugin": "^1.26.0",
+    "@tanstack/react-devtools": "latest",
+    "@tanstack/react-router": "latest",
+    "@tanstack/react-router-devtools": "latest",
+    "@tanstack/react-router-ssr-query": "latest",
+    "@tanstack/react-start": "latest",
+    "@tanstack/router-plugin": "^1.132.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.4.5",
+    "@tanstack/devtools-vite": "latest",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^6.0.1",
+    "jsdom": "^28.1.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.0",
+    "vitest": "^4.1.5",
+    "wrangler": "^4.70.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "lightningcss"
+    ]
+  },
+  "packageManager": "pnpm@11.0.8+sha512.4c4097e1dd2d42372c4e7fa5a791ff28fc75a484c7ac192e64b1df0fdef17594ba982f9b4fed9adfb3c757846f565b799b2763fb3733d1de1bcb82cf46684912"
+}

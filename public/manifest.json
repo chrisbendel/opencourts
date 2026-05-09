@@ -1,0 +1,16 @@
+{
+  "short_name": "OpenCourts",
+  "name": "OpenCourts — public tennis court queue",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#2f6fb5",
+  "background_color": "#3f8a4a"
+}

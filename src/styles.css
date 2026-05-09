@@ -1,0 +1,173 @@
+/* OpenCourts — plain CSS, semantic HTML preferred. Keep small. */
+
+:root {
+  --court-blue: #2f6fb5;
+  --court-blue-deep: #1f5491;
+  --court-green: #3f8a4a;
+  --ink: #181a1c;
+  --muted: #5b6066;
+  --line: #d8dde2;
+  --bg: #fafafa;
+  --max: 42rem;
+  --radius: 6px;
+  --gap: 1rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+main {
+  max-width: var(--max);
+  margin-inline: auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.1;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  font-size: 1.25rem;
+  margin: 1.75rem 0 0.5rem;
+}
+
+p {
+  margin: 0 0 1rem;
+}
+
+p.lead {
+  font-size: 1.125rem;
+  color: var(--muted);
+}
+
+a {
+  color: var(--court-blue-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--court-blue);
+}
+
+/* Buttons + button-styled links */
+.btn,
+button {
+  display: inline-block;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover,
+button:hover {
+  background: #f1f3f5;
+}
+
+.btn-primary {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+}
+
+.btn-primary:hover {
+  background: #000;
+  color: #fff;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+/* Forms */
+form {
+  display: grid;
+  gap: var(--gap);
+  margin-top: 1.5rem;
+}
+
+label {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--court-blue);
+  outline-offset: 1px;
+}
+
+/* Lists */
+ul.bare {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+ul.bare li {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+/* Subtle muted text */
+.muted {
+  color: var(--muted);
+}
+
+/* Print sheet baseline (refined in #11) */
+@media print {
+  body {
+    background: #fff;
+  }
+  nav,
+  .no-print {
+    display: none !important;
+  }
+}

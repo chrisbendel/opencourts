@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="OpenCourts">
+  <title>OpenCourts</title>
+
+  <!-- Out of bounds / surround -->
+  <rect width="64" height="64" rx="8" fill="#3f8a4a"/>
+
+  <!-- Court surface (hard court blue, oriented north–south) -->
+  <rect x="19" y="4" width="26" height="56" fill="#2f6fb5"/>
+
+  <!-- Court lines: baselines, doubles sidelines, service lines, center service line, center marks -->
+  <g stroke="#ffffff" stroke-width="1" stroke-linecap="square" fill="none">
+    <!-- Doubles court outer rectangle (baselines + doubles sidelines) -->
+    <rect x="19" y="4" width="26" height="56"/>
+
+    <!-- Singles sidelines -->
+    <line x1="22.25" y1="4"  x2="22.25" y2="60"/>
+    <line x1="41.75" y1="4"  x2="41.75" y2="60"/>
+
+    <!-- Service lines (top + bottom of service boxes) -->
+    <line x1="22.25" y1="17" x2="41.75" y2="17"/>
+    <line x1="22.25" y1="47" x2="41.75" y2="47"/>
+
+    <!-- Center service line -->
+    <line x1="32" y1="17" x2="32" y2="47"/>
+
+    <!-- Center marks at baselines -->
+    <line x1="32" y1="4"  x2="32" y2="6"/>
+    <line x1="32" y1="58" x2="32" y2="60"/>
+  </g>
+
+  <!-- Net (with posts extending past doubles sidelines) -->
+  <line x1="16" y1="32" x2="48" y2="32" stroke="#0e1a24" stroke-width="1.4" stroke-linecap="square"/>
+</svg>

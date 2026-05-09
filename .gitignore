@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+.pnp.*
+.pnp.cjs
+.pnp.loader.mjs
+.yarn/
+
+# Build output
+dist/
+build/
+.output/
+.vinxi/
+.tanstack/
+.vite/
+
+# Wrangler / Cloudflare local state (includes local D1 SQLite)
+.wrangler/
+.dev.vars
+
+# Local env
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+
+# Coverage / test artifacts
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Local DB files (just in case)
+*.db
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

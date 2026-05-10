@@ -19,15 +19,15 @@ pnpm db:new <short_snake_case_description>
 
 # 2. write the SQL in the new migrations/000N_<name>.sql file
 # 3. mirror the change in src/db/schema.ts
-# 4. apply locally
+# 4. apply LOCALLY (never to prod from your laptop)
 pnpm db:migrate
 
 # 5. commit BOTH files in the same PR
 git add migrations/000N_*.sql src/db/schema.ts
 git commit -m "feat(db): <what changed>"
 
-# 6. after merge, apply to production
-pnpm db:migrate:prod
+# 6. open PR → merge → CI applies to remote + deploys.
+#    There is intentionally no `db:migrate:prod` script. See "Production rollout" below.
 ```
 
 ---
@@ -306,13 +306,36 @@ If any of those fail or look wrong, fix the migration **before applying to prod*
 
 ## Production rollout
 
+**Production ops happen only through CI/CD.** Workers Builds (issue #5) is wired to:
+
+1. Run `pnpm install --frozen-lockfile`
+2. Run `pnpm build`
+3. Run `npx wrangler d1 migrations apply opencourts --remote` (applies any new migrations to remote D1)
+4. Run `npx wrangler deploy` (ships the Worker)
+
+This happens on every push to `main`. There is **no laptop equivalent** of these steps — the relevant scripts (`deploy`, `db:migrate:prod`, `db:status:prod`) were intentionally removed from `package.json` so nobody can apply a migration or deploy to production from their laptop.
+
+### Inspecting prod
+
+To check what migrations have been applied to remote D1 without applying anything:
+
 ```bash
-# only after the PR is merged to main
-pnpm db:migrate:prod
-pnpm db:status:prod      # confirm applied
+npx wrangler d1 migrations list opencourts --remote
+npx wrangler d1 execute opencourts --remote --command "<read-only SQL>"
 ```
 
-CI/Workers Builds (issue #5) will eventually do this automatically on push to main.
+These are read-only and safe.
+
+### True emergency only
+
+If CI is genuinely down and prod has a critical bug requiring DB intervention, the bare wrangler commands still work from your laptop with your CF auth:
+
+```bash
+npx wrangler d1 migrations apply opencourts --remote
+npx wrangler deploy
+```
+
+But this should require an incident-level reason and a follow-up commit fixing whatever made CI unavailable. **Do not use this as a routine workflow.**
 
 ---
 

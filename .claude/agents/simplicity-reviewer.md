@@ -83,6 +83,10 @@ Authoritative migration playbook: [`migrations/README.md`](../../migrations/READ
 - State changes happen via lazy promotion inside the same transaction as the read (see `VISION.md`).
 - No third-party auth / accounts.
 
+### Production ops are CI-only
+- A `package.json` script that calls `wrangler … --remote`, `wrangler deploy`, or anything that touches production D1 or deploys the Worker = blocker. Production ops run exclusively from Workers Builds (issue #5). The previous `deploy`, `db:migrate:prod`, and `db:status:prod` scripts were intentionally removed; do not reintroduce them.
+- Documentation that instructs a human to run `wrangler … --remote` from their laptop as a routine step = blocker. Read-only inspection (`migrations list --remote`, `execute --remote` with a SELECT) is fine.
+
 ### Friction
 - Did a user-facing flow grow a confirmation, captcha, or extra tap? Is there a principle-level reason in the diff?
 - Default position: friction = bad.

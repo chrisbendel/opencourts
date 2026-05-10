@@ -18,6 +18,7 @@ These are non-negotiable. If a request would violate one, **stop and flag the co
 6. **No vendor lock-in if avoidable.** Hosting target is Cloudflare Pages today, but framework + DB + libs should remain swappable. Prefer Web-Standard APIs (`fetch`, `crypto.randomUUID`) over Node or platform-specific ones.
 7. **Friction is the enemy.** A new code path that adds a tap, a confirmation, or a wait time on the user's main flow needs an explicit principle-level reason. Default answer is no.
 8. **Mobile-first, dead simple.** Phone is the primary device — most landings come from a QR scan. Design for 375×667 first. Big tap targets (≥44px). One column. One primary action per screen. No sidebars, no nested modals, no hover-only interactions, no drag-drop. Desktop is whatever mobile gives you with more whitespace.
+9. **Production ops happen only through CI/CD.** No deploys from a laptop. No remote D1 migrations from a laptop. The package.json scripts intentionally have no `--remote` or `deploy` shortcuts. All prod changes flow through Workers Builds on push to `main` (issue #5). If you find yourself reaching for `wrangler … --remote` directly, stop and ask whether the change should go through a PR instead.
 
 ## Stack (locked)
 
@@ -207,15 +208,15 @@ import type { Court, NewCourt, QueueEntry, NewQueueEntry } from '#/db/schema'
 Quick recap of the loop:
 
 ```
-1. pnpm db:new <name>                 → creates migrations/000N_<name>.sql (empty)
+1. pnpm db:new <name>          → creates migrations/000N_<name>.sql (empty)
 2. Write the CREATE/ALTER SQL in that file
 3. Update src/db/schema.ts to match (add/modify table builders)
-4. pnpm db:migrate                    → applies to local D1
+4. pnpm db:migrate             → applies to LOCAL D1 only
 5. Commit migration AND schema.ts together — same PR
-6. After merge: pnpm db:migrate:prod  → applies to remote D1
+6. Merge → CI applies to remote D1 + deploys (no laptop ever touches prod)
 ```
 
-Steps 2 and 3 must agree. Reviewer agent + simplicity-reviewer flag PRs that touch one without the other.
+Steps 2 and 3 must agree. Reviewer agent + simplicity-reviewer flag PRs that touch one without the other. Step 6 is automatic — see issue #5 (Workers Builds).
 
 ### Migration philosophy: forward-only, Rails-style
 

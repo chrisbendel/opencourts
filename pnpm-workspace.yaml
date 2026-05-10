@@ -1,5 +1,9 @@
+# Per-package config for pnpm. Despite the "workspace" name, pnpm v10+
+# uses this file for single-package projects too.
+#
+# `allowBuilds` is the canonical place to allow postinstall scripts.
+# Add a package here only if its postinstall is actually needed.
+
 allowBuilds:
-  better-sqlite3: set this to true or false
-  esbuild: true
-  sharp: false
-  workerd: true
+  esbuild: true   # JS bundler — extracts a Go binary on install
+  workerd: true   # Cloudflare Worker runtime — used by `wrangler dev`

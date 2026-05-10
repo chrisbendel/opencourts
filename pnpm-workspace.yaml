@@ -7,3 +7,4 @@
 allowBuilds:
   esbuild: true   # JS bundler — extracts a Go binary on install
   workerd: true   # Cloudflare Worker runtime — used by `wrangler dev`
+  sharp: false    # transitive dep we don't use; explicit `false` silences CI prompt

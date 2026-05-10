@@ -18,10 +18,11 @@ A QR code on the fence at each court. Scan it to check in. The site shows who's 
 ## Core Principles
 
 1. **Zero friction.** No accounts. No app install. No email. Scan a QR, tap one or two buttons, done. If it takes more than 5 seconds it won't get used.
-2. **Public benefit by default.** Anyone can register a court. Anyone can use any court. The data is open. The site exists to make a small public good slightly better.
-3. **Self-correcting.** Entries expire automatically. Stale data clears itself. No moderators required.
-4. **Near-zero operating cost.** The whole thing should run on free tiers indefinitely. If it gets popular, costs stay in pennies-per-month range.
-5. **Organic scale.** Anyone with a printer and a lamination pouch can spread it. No central rollout.
+2. **Mobile-first, dead simple UI.** The phone is *the* device — users land here from a QR scan in a parking lot. One column. Big tap targets. One primary action per screen. No sidebars, no modals stacked on modals, no hover-only interactions, no drag-drop. Desktop layout is whatever mobile gives you with more whitespace. Polish ranks below clarity.
+3. **Public benefit by default.** Anyone can register a court. Anyone can use any court. The data is open. The site exists to make a small public good slightly better.
+4. **Self-correcting.** Entries expire automatically. Stale data clears itself. No moderators required.
+5. **Near-zero operating cost.** The whole thing should run on free tiers indefinitely. If it gets popular, costs stay in pennies-per-month range.
+6. **Organic scale.** Anyone with a printer and a lamination pouch can spread it. No central rollout.
 
 ## User Flows
 
@@ -135,11 +136,11 @@ Wipe + reseed via `pnpm db:seed`.
 - **Framework:** [TanStack Start](https://tanstack.com/start) — Vite-based React full-stack framework. File routes, server functions (RPC-style mutations and loaders). Vendor-agnostic build target.
 - **Hosting:** Cloudflare Pages (or Workers + Static Assets, whichever is the current recommended pattern at scaffold time). Free tier handles ~3M requests/month.
 - **Database:** [Cloudflare D1](https://developers.cloudflare.com/d1/) — CF-native managed SQLite, bound directly to the Worker via `wrangler.jsonc`. Same dashboard, same auth, same bill as the rest of the stack. Free tier: 5GB storage, 5M reads/day, 100k writes/day.
-- **DB client:** [Kysely](https://kysely.dev) + [`kysely-d1`](https://github.com/aidenwallis/kysely-d1) dialect. Type-safe query builder, no schema DSL, no codegen of the *queries*. **No ORM** (Drizzle, Prisma, etc. are explicitly rejected).
-- **DB types:** `src/db/schema.ts` is auto-generated from the local D1 SQLite file by [kysely-codegen](https://github.com/RobinBlomberg/kysely-codegen). Never hand-edited. CI verifies no drift.
-- **Migrations:** plain `.sql` files in `migrations/`, numbered + append-only (`0001_init.sql`, `0002_*.sql`, …). Created with `wrangler d1 migrations create`, applied with `wrangler d1 migrations apply`. D1's binding-only API can't be reached from a Node CLI, so we use wrangler's tooling instead of Kysely's `Migrator`. Migration tracking is handled by D1 itself.
+- **DB client:** [Drizzle ORM](https://orm.drizzle.team) (`drizzle-orm/d1`). Schema-in-TypeScript with auto-derived types via `$inferSelect` / `$inferInsert`. No codegen step, no schema DSL, no native binaries.
+- **DB types:** Derived from `src/db/schema.ts` directly. Schema-in-TS = no separate type generation, no drift between schema and types.
+- **Migrations:** plain `.sql` files in `migrations/`, numbered + append-only (`0001_init.sql`, `0002_*.sql`, …). Created with `wrangler d1 migrations create`, applied with `wrangler d1 migrations apply`. **Drizzle-kit is explicitly NOT used** — we keep migrations as wrangler-managed SQL to avoid drizzle-kit's JSON snapshot bloat in PR diffs.
 
-> **Note on migrations**: we initially planned Kysely TS migrations to keep one abstraction. D1's binding model rules that out — `env.DB` only exists inside a running Worker, so a CLI-driven Kysely Migrator can't talk to D1. Wrangler's SQL-file migrations are the canonical path. We keep Kysely for queries + types; migrations are SQL.
+> **Note on Drizzle**: we use only the runtime half of Drizzle (`drizzle-orm`). The migration tooling half (`drizzle-kit`) is rejected because its schema-snapshot JSON files are noisy in PR diffs. Schema (TS) and migrations (SQL) are kept in sync by code review, not by tooling. For a 2-3 table app this is a clean trade.
 - **QR generation:** server-side at court registration, return PDF or PNG.
 - **Identity:** random UUID in `httpOnly` cookie, set on first visit.
 - **Styling:** plain CSS in `src/styles.css`. Semantic HTML. **No Tailwind, no CSS-in-JS, no UI library.**
@@ -167,16 +168,16 @@ Worker is a V8 isolate. Spins up cold, dies fast. No persistent disk, no TCP poo
 - *Vercel + Next.js*: ergonomic but soft lock-in, and we want to avoid Vercel-specific dependencies.
 - *Rails / long-running server*: pays for idle. Defeats the cost goal.
 - *Postgres (Neon, Supabase) on Workers*: needs a connection pooler. Extra hop, extra service.
-- *Turso*: very capable libSQL host, slightly bigger free tier, more portable. Rejected in favor of D1 because we're already committed to Cloudflare and the single-platform ergonomics (one dashboard, one bill, native binding, no URL/auth-token plumbing) outweigh the portability advantage for this project.
 - *Upstash Redis with TTL keys*: nice fit for the queue, but adds a second DB. SQLite with `expires_at` filter is just as good at this scale.
-- *Drizzle / Prisma / any ORM*: rejected. Adds layers between us and SQL we already understand. Schema-as-TypeScript drifts from the actual DB. Migration tooling becomes another framework. Raw SQL is fine at this scale.
+- *Prisma*: too heavy on D1, codegen step, schema DSL, "Early Access" migration story.
+- *`drizzle-kit`*: rejected. Its JSON snapshot files inflate PR diffs and have a learning curve we don't need. We use only `drizzle-orm` (the runtime half) and let wrangler own migrations as plain SQL.
 - *Tailwind / shadcn / UI library*: rejected. Hides CSS behind class strings, locks us to a build pipeline, and the project's surface area is small enough that 100 lines of plain CSS covers everything.
 - *Adding accounts*: would let users see their own history across devices, but the friction cost is huge for the marginal benefit. Skip.
 
 ### Known gotchas
 
 - **No `node:` builtins** in Worker runtime. Web-Standard APIs only (`crypto.randomUUID()` etc.). Pick edge-friendly libs.
-- **Worker bundle size**: 1MB free / 10MB paid. TanStack Start + Drizzle + libSQL fits comfortably; avoid heavy deps.
+- **Worker bundle size**: 1MB free / 10MB paid. TanStack Start + Drizzle + D1 binding fits comfortably; avoid heavy deps.
 - **TanStack Start is still maturing** (pre-1.0 churn possible). Trade-off accepted in exchange for a cleaner agnostic stack.
 - **Embedded Turso replicas** require disk → don't apply on Workers. Just use remote HTTPS; latency is fine.
 

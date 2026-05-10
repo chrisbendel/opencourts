@@ -10,7 +10,7 @@ These are project-specific conventions. They override generic best-practice inst
 ## Hard rules — recap
 
 1. No Tailwind, no CSS-in-JS, no UI libraries. Plain CSS in `src/styles.css`. Semantic HTML.
-2. No ORMs. Raw SQL via `@libsql/client` (or chosen lightweight wrapper).
+2. **Drizzle ORM (`drizzle-orm/d1`) only.** No `drizzle-kit`. No other ORMs. No raw SQL inside app code.
 3. No new deps without justification.
 4. No background workers, cron, or queue services. Lazy promotion at read time.
 5. No accounts. Anonymous identity = httpOnly cookie UUID.
@@ -70,68 +70,83 @@ export const registerCourt = createServerFn({ method: 'POST' })
 - Read session via `src/server/session.ts` helpers, not by parsing cookies inline.
 - Wrap multi-statement DB work in a transaction.
 
-## Writing queries (Kysely on D1)
+## Writing queries (Drizzle on D1)
 
 - DB access happens via `makeDb(env.DB)` exported from `src/db/client.ts`.
-- D1's binding is **per-request**, so Kysely is built inside the server-function handler — never as a module-level singleton:
+- D1's binding is **per-request**, so Drizzle is built inside the server-function handler — never as a module-level singleton:
   ```ts
+  import { eq } from 'drizzle-orm'
+  import { courts } from '#/db/schema'
+
   export const getCourt = createServerFn({ method: 'GET' })
     .validator((id: string) => id)
     .handler(async ({ data: id, context }) => {
       const db = makeDb(context.env.DB)
       return db
-        .selectFrom('courts')
-        .select(['id', 'name', 'numCourts'])
-        .where('id', '=', id)
-        .executeTakeFirst()
+        .select({
+          id: courts.id,
+          name: courts.name,
+          numCourts: courts.numCourts,
+        })
+        .from(courts)
+        .where(eq(courts.id, id))
+        .get()
     })
   ```
-- **Never `.selectAll()`** — always pick columns explicitly. Forces awareness when a column is added.
-- Tables are `snake_case` in SQL, `camelCase` in TS — `CamelCasePlugin` handles the conversion. Don't write `num_courts` in app code.
-- Transactions are shallow, one per server fn. (Note: D1 transactions are limited; multi-statement work often uses `db.transaction()` or `D1` batched statements. Prefer Kysely's transaction API where supported.)
-- `src/db/schema.ts` is auto-generated. Treat as read-only. Regenerate via `pnpm db:codegen` after migrations.
+- **Prefer explicit selects** when the row will be returned to the client — forces awareness when columns are added.
+- **camelCase in TS, snake_case in SQL.** Drizzle handles the mapping in the schema definition (`text('court_id')` ↔ `courtId`). App code only sees camelCase.
+- **Transactions are shallow.** One per server fn, no nesting. (D1's transactions are limited; multi-statement atomic work often uses `db.batch([...])`.)
+- `drizzle-orm/d1` is imported only by `src/db/client.ts`. Never elsewhere.
+
+### Row types — use the auto-derived ones
+
+```ts
+import type { Court, NewCourt, QueueEntry } from '#/db/schema'
+// Or, equivalently:
+import { courts } from '#/db/schema'
+type Court = typeof courts.$inferSelect
+type NewCourt = typeof courts.$inferInsert  // omits defaulted/generated cols
+```
+
+Never write a hand-rolled interface that mirrors a Drizzle table — your schema-in-TS already emits the type for free.
 
 ## Schema changes
 
+> **Open `migrations/README.md` before doing anything.** It has the full playbook with copy-paste recipes for every common operation (add table, add column, drop, rename, indexes, data migrations, FKs, SQLite gotchas). Don't reinvent — copy the recipe.
+
+Two files change in lockstep. Same PR.
+
 ```
-1. pnpm db:new <name>                         → scaffolds migrations/000N_<name>.sql
-2. Edit the file with CREATE/ALTER SQL
-3. pnpm db:migrate                            → applies to local D1
-4. pnpm db:codegen                            → regenerates src/db/schema.ts
-5. Commit BOTH migration and schema.ts in one PR
-6. After merge: pnpm db:migrate:prod          → applies to remote D1
+1. pnpm db:new <name>             → scaffolds migrations/000N_<name>.sql (empty)
+2. Write CREATE/ALTER SQL in that file
+3. Mirror the change in src/db/schema.ts (add/modify a sqliteTable, update inferred types)
+4. pnpm db:migrate                → applies to local D1
+5. Commit migration AND schema.ts together
+6. After merge: pnpm db:migrate:prod
 ```
 
 - Migrations are never renamed or edited after applied.
 - One migration per logical change. No bundles.
-- D1 + wrangler does not support down migrations. To "rollback" locally use `pnpm db:reset`. In production: always forward — write a new migration that undoes the change.
+- **Forward-only, by policy.** No `down` blocks, no rollback command. Local rollback = `pnpm db:reset`. Production rollback = a new forward migration that reverses the previous one.
+- **Schema.ts is hand-maintained**, not auto-generated. When a migration changes the DB, edit `src/db/schema.ts` to match in the same PR.
+- **Never run `drizzle-kit`.** No JSON snapshots, no schema generation tools, no `pull`/`push`/`generate`/`migrate` rituals.
 
-### Migration boilerplate
+### Schema + migration pairing example
+
+```ts
+// src/db/schema.ts — add a column
+export const courts = sqliteTable('courts', {
+  // ...existing columns...
+  contactEmail: text('contact_email'),  // new
+})
+```
 
 ```sql
--- migrations/0001_init.sql
-
-CREATE TABLE courts (
-  id TEXT PRIMARY KEY,
-  name TEXT NOT NULL,
-  location TEXT NOT NULL,
-  num_courts INTEGER NOT NULL,
-  created_at INTEGER NOT NULL DEFAULT (unixepoch())
-);
-
-CREATE TABLE queue_entries (
-  id TEXT PRIMARY KEY,
-  court_id TEXT NOT NULL REFERENCES courts(id) ON DELETE CASCADE,
-  session_id TEXT NOT NULL,
-  party_size INTEGER NOT NULL DEFAULT 1,
-  status TEXT NOT NULL CHECK (status IN ('waiting', 'playing')),
-  started_at INTEGER,
-  expires_at INTEGER
-);
-
-CREATE INDEX idx_queue_entries_court_active
-  ON queue_entries (court_id, expires_at);
+-- migrations/0002_add_contact_email.sql
+ALTER TABLE courts ADD COLUMN contact_email TEXT;
 ```
+
+Both files in the same commit. Reviewer flags PRs missing one side.
 
 ## Lazy promotion (the one piece of cleverness)
 
@@ -163,7 +178,38 @@ This replaces background workers and cron. State is honest by query, not by cloc
 - Add new selectors to `src/styles.css`. Keep file scannable; group related rules.
 - Use existing CSS variables for color/spacing. Add new variables only when a value will reuse.
 - No utility classes. If you need flex/grid, write a class with a meaning (`.actions`, `.card-grid`).
-- Mobile-first. The phone is the primary device — most users land via QR scan.
+
+## Mobile-first UX (non-negotiable)
+
+The phone is *the* device. Most users land here from a QR scan. Every screen must work at **375×667**. Desktop = mobile + whitespace.
+
+### Layout
+- One column. Max width ~640px, centered.
+- No sidebars, no two-pane views, no horizontal scroll.
+
+### Tap targets
+- Buttons ≥ 44×44px (use generous padding, not just font size).
+- ≥ 8px between tappable elements.
+
+### Interaction
+- **No hover-only interactions.** Hover = decoration.
+- **No drag-drop, no keyboard shortcuts as primary path.**
+- **One primary action per screen.** Secondary actions visually subordinate.
+- **No multi-step modals.** No popups that hide important content.
+
+### Forms
+- Native `<input>`, `<select>`, `<textarea>`. No custom widgets.
+- Use the right `type=` (`tel`, `number`, `email`, etc.) so mobile keyboards adapt.
+- One field per row. `<label>` always — placeholder is not a label.
+- Body text ≥ 16px (prevents iOS zoom-on-focus).
+
+### Forbidden
+- Carousels.
+- Hamburger menus on a 4-route app.
+- Floating action buttons.
+- Splash screens.
+- Cookie banners (we don't track anything).
+- Anything requiring a tooltip or tutorial to use.
 
 ## What "dead simple" means in practice
 

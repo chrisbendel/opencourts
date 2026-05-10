@@ -1,15 +1,17 @@
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "opencourts",
-  "compatibility_date": "2025-09-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "@tanstack/react-start/server-entry",
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "opencourts",
-      "database_id": "REPLACE_WITH_ID_FROM_wrangler_d1_create",
-      "migrations_dir": "migrations"
-    }
-  ]
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "opencourts",
+	"compatibility_date": "2025-09-02",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	"main": "@tanstack/react-start/server-entry",
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "opencourts",
+			"database_id": "a91f2c16-82b8-4522-a4cb-fa2182ea8c74",
+			"migrations_dir": "migrations"
+		}
+	]
 }

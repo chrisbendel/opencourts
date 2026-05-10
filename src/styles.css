@@ -72,11 +72,14 @@ a:hover {
   color: var(--court-blue);
 }
 
-/* Buttons + button-styled links */
+/* Buttons + button-styled links — 44px+ tap target (mobile-first) */
 .btn,
 button {
-  display: inline-block;
-  padding: 0.55rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0.6rem 1.1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
@@ -127,10 +130,16 @@ input,
 select,
 textarea {
   font: inherit;
-  padding: 0.5rem 0.65rem;
+  /* 16px font + this padding clears 44px target and prevents iOS zoom-on-focus */
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
+}
+
+textarea {
+  min-height: 88px;
 }
 
 input:focus,

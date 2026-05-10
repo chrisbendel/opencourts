@@ -44,24 +44,48 @@ Walk through each. Report violations with file + line + the rule broken.
 - No `<div onClick>` masquerading as a button.
 - Headings use real `<h1>`/`<h2>`/etc., not styled `<div>`.
 
-### Database (Kysely on D1)
-- No ORM imports (`drizzle-orm`, `@prisma/*`, `typeorm`, `mikro-orm`, `sequelize`, `objection`, etc.).
-- `kysely-d1` is imported **only** by `src/db/client.ts`. Anywhere else = blocker.
-- The Kysely instance is constructed via `makeDb(env.DB)` per request. Module-level / top-level Kysely instances = blocker (D1 binding is request-scoped).
+### Mobile-first UX (see CLAUDE.md → UX rules)
+
+The phone is the primary device. Flag any of these:
+
+- **Layout:** sidebars, two-pane views, fixed widths > 640px, anything that scrolls horizontally on phone = blocker.
+- **Tap targets:** buttons / tappable controls smaller than 44px in any dimension = blocker. Adjacent destructive actions = nit.
+- **Interaction patterns that fail on touch:**
+  - Hover-only reveals (tooltips with critical info, hover-to-show menus) = blocker.
+  - Drag-drop required for primary flow = blocker.
+  - Keyboard shortcuts as the only path to a feature = blocker.
+- **Modals:** modal that opens another modal = blocker. Dismiss-only modal blocking the main flow = blocker.
+- **One primary action per screen.** A screen with two equal-weight primary buttons (both filled, both same color) = nit; suggest demoting one.
+- **Forms:** custom widgets where a native `<input>` / `<select>` would do = nit. Missing or wrong `type=` attribute (e.g. `<input>` for a phone number without `type="tel"`) = nit. Two-column form layouts = blocker.
+- **Type:** body text smaller than 16px = blocker (iOS zooms on focus).
+- **Forbidden patterns** (any = blocker): carousels, hamburger menus, floating action buttons, splash screens, cookie banners, anything that needs a tooltip or tutorial to discover.
+
+### Database (Drizzle on D1)
+
+Authoritative migration playbook: [`migrations/README.md`](../../migrations/README.md). Cross-reference any schema-touching change against it.
+
+- No other ORM or query-builder imports (`@prisma/*`, `typeorm`, `mikro-orm`, `sequelize`, `objection`, etc.) = blocker. Drizzle is the only allowed DB layer.
+- **`drizzle-kit` is forbidden.** Any of these = blocker: `drizzle-kit` in `package.json`, `drizzle.config.ts` file present, `drizzle/meta/` or `drizzle/_journal.json` files committed, `drizzle-kit generate|push|migrate` invocations in scripts.
+- `drizzle-orm/d1` is imported **only** by `src/db/client.ts`. Anywhere else = blocker.
+- Drizzle instance is built via `makeDb(env.DB)` per request. Module-level / top-level Drizzle instances = blocker (D1 binding is request-scoped).
 - `makeDb` is called **only** from `src/server/*.ts`. Route files (`src/routes/`) calling it directly = blocker.
-- `src/db/schema.ts` is auto-generated. Manual edits = blocker. Header comment warns; CI catches diff.
-- Migrations live in `migrations/NNNN_*.sql`, plain SQL, append-only. TypeScript migration files = blocker (D1's binding model rules out CLI-driven Kysely Migrator).
+- Migrations live in `migrations/NNNN_*.sql`, plain SQL, append-only.
 - A migration whose number was renamed, or contents edited after the fact, = blocker (commit history will show this).
-- Schema-changing PR must include both the new migration and a regenerated `src/db/schema.ts`. Missing one = blocker.
-- `.selectAll()` in app code = nit (forces awareness of column changes). Allowed only in `src/db/`.
-- Raw SQL via `sql\`...\`` template in app code (`src/server/`, `src/routes/`) = nit. Should be in `src/db/` if needed at all.
-- snake_case column names in TS code = blocker. `CamelCasePlugin` handles conversion; app code uses camelCase only.
-- Use of any DB driver other than D1 binding (e.g. `@libsql/client`, `pg`, `mysql2`) = blocker.
+- A schema-changing PR (touches `migrations/*.sql`) must also touch `src/db/schema.ts`, and vice versa. PR with one but not the other = blocker.
+- Hand-rolled TypeScript interfaces that duplicate a Drizzle table's shape (instead of using `typeof courts.$inferSelect` etc.) = nit. Strongly suggest using the inferred types.
+- Raw SQL via `drizzle-orm`'s `sql\`...\`` template in app code (`src/server/`, `src/routes/`) outside of cases where the query builder genuinely cannot express it = nit. Flag and suggest a builder equivalent.
+- Snake_case property access in TS code (e.g. `court.num_courts`) = blocker. The schema maps to camelCase; app code only sees `numCourts`.
+- Use of any DB driver other than the D1 binding (e.g. `pg`, `mysql2`, etc.) = blocker.
+- `.select()` without explicit columns when the result is returned to the client = nit. Suggest explicit `.select({ id: ..., name: ... })` to force awareness on column adds.
 
 ### Architecture
 - No background workers, cron, queue services, or Redis added.
 - State changes happen via lazy promotion inside the same transaction as the read (see `VISION.md`).
 - No third-party auth / accounts.
+
+### Production ops are CI-only
+- A `package.json` script that calls `wrangler … --remote`, `wrangler deploy`, or anything that touches production D1 or deploys the Worker = blocker. Production ops run exclusively from Workers Builds (issue #5). The previous `deploy`, `db:migrate:prod`, and `db:status:prod` scripts were intentionally removed; do not reintroduce them.
+- Documentation that instructs a human to run `wrangler … --remote` from their laptop as a routine step = blocker. Read-only inspection (`migrations list --remote`, `execute --remote` with a SELECT) is fine.
 
 ### Friction
 - Did a user-facing flow grow a confirmation, captcha, or extra tap? Is there a principle-level reason in the diff?

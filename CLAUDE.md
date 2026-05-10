@@ -202,6 +202,10 @@ import type { Court, NewCourt, QueueEntry, NewQueueEntry } from '#/db/schema'
 
 ### Workflow when changing the schema
 
+> **Full playbook with copy-paste recipes lives at [`migrations/README.md`](./migrations/README.md).** Read it before any schema change. It covers: adding tables, adding columns (nullable / NOT NULL / with backfill), dropping/renaming columns, indexes, pure data migrations, FK additions, and SQLite-specific gotchas. Both humans and AI agents should reach for it first.
+
+Quick recap of the loop:
+
 ```
 1. pnpm db:new <name>                 → creates migrations/000N_<name>.sql (empty)
 2. Write the CREATE/ALTER SQL in that file

@@ -61,6 +61,9 @@ The phone is the primary device. Flag any of these:
 - **Forbidden patterns** (any = blocker): carousels, hamburger menus, floating action buttons, splash screens, cookie banners, anything that needs a tooltip or tutorial to discover.
 
 ### Database (Drizzle on D1)
+
+Authoritative migration playbook: [`migrations/README.md`](../../migrations/README.md). Cross-reference any schema-touching change against it.
+
 - No other ORM or query-builder imports (`@prisma/*`, `typeorm`, `mikro-orm`, `sequelize`, `objection`, etc.) = blocker. Drizzle is the only allowed DB layer.
 - **`drizzle-kit` is forbidden.** Any of these = blocker: `drizzle-kit` in `package.json`, `drizzle.config.ts` file present, `drizzle/meta/` or `drizzle/_journal.json` files committed, `drizzle-kit generate|push|migrate` invocations in scripts.
 - `drizzle-orm/d1` is imported **only** by `src/db/client.ts`. Anywhere else = blocker.

@@ -112,6 +112,8 @@ Never write a hand-rolled interface that mirrors a Drizzle table — your schema
 
 ## Schema changes
 
+> **Open `migrations/README.md` before doing anything.** It has the full playbook with copy-paste recipes for every common operation (add table, add column, drop, rename, indexes, data migrations, FKs, SQLite gotchas). Don't reinvent — copy the recipe.
+
 Two files change in lockstep. Same PR.
 
 ```

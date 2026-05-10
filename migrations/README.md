@@ -288,6 +288,7 @@ This is enough rope to hang yourself with. **Strongly prefer**: add the column n
 ```bash
 # locally, against a clean DB
 pnpm db:reset                 # nuke + replay all migrations including the new one
+pnpm db:check                 # ⚑ drift check: confirms migrations and schema.ts agree
 pnpm exec tsc --noEmit        # confirm schema.ts compiles cleanly
 pnpm dev                      # smoke-test the app
 
@@ -301,6 +302,18 @@ npx wrangler d1 execute opencourts --local \
 ```
 
 If any of those fail or look wrong, fix the migration **before applying to prod**.
+
+### About `pnpm db:check`
+
+A vitest test at `src/db/schema.test.ts` that:
+1. Queries the local D1 SQLite for the actual tables + columns.
+2. Walks every Drizzle table exported from `src/db/schema.ts`.
+3. Fails if a table is in one source but not the other, or if column names don't match between them.
+
+What it catches: structural drift (forgot to update schema.ts after a migration, or vice versa).
+What it doesn't catch: type / nullability / default mismatches — those surface fast at runtime.
+
+Runs as part of `pnpm test` too; CI (issue #5) will gate deploys on this passing.
 
 ---
 

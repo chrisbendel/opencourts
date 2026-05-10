@@ -212,11 +212,12 @@ Quick recap of the loop:
 2. Write the CREATE/ALTER SQL in that file
 3. Update src/db/schema.ts to match (add/modify table builders)
 4. pnpm db:migrate             → applies to LOCAL D1 only
-5. Commit migration AND schema.ts together — same PR
-6. Merge → CI applies to remote D1 + deploys (no laptop ever touches prod)
+5. pnpm db:check               → drift check: fails if migrations and schema.ts disagree
+6. Commit migration AND schema.ts together — same PR
+7. Merge → CI applies to remote D1 + deploys (no laptop ever touches prod)
 ```
 
-Steps 2 and 3 must agree. Reviewer agent + simplicity-reviewer flag PRs that touch one without the other. Step 6 is automatic — see issue #5 (Workers Builds).
+Steps 2 and 3 must agree, and step 5 enforces that automatically. Reviewer agent + simplicity-reviewer also flag PRs that touch one without the other. Step 7 is automatic — see issue #5 (Workers Builds).
 
 ### Migration philosophy: forward-only, Rails-style
 

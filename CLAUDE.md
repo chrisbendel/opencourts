@@ -259,6 +259,52 @@ The pattern is **Rails ActiveRecord migrations minus `down` blocks**. Map:
 - If a new file would be < 50 lines, consider whether it can fold into an existing one.
 - New routes: stub first (placeholder under-construction body), then wire data, then wire actions. No dead routes in main.
 
+## Security posture
+
+The app runs on the public internet. The data is intentionally public — anyone can read court state without auth — so the threat model isn't about confidentiality. It's about **abuse and integrity**:
+
+- Spam court registrations
+- Spam queue check-ins
+- AI training-corpus scraping (low-stakes, but we'd rather opt out)
+- Generic bot/DDoS noise
+
+### Layered defenses
+
+| Layer | Tool | Status |
+|---|---|---|
+| Edge | Cloudflare DDoS protection | always-on by default |
+| Edge | Cloudflare Bot Fight Mode | **enable in dashboard** (free, see open issue) |
+| Edge | Cloudflare WAF managed rules | free tier covers common attack patterns |
+| Edge | Cloudflare Transform Rules → response headers | **configure in dashboard** (HSTS, X-Content-Type-Options, Referrer-Policy) |
+| Edge | rate limiting via CF Rate Limiting Rules | configure per-route when feature lands (#6, #8) |
+| App | `public/robots.txt` | blocks AI training crawlers; allows search + user-triggered AI |
+| App | input validation in server fns | always (validators per `createServerFn`) |
+| App | per-session/IP throttling on mutating server fns | implement in #6, #8 |
+| App | honeypot field on `/register` form | implement in #6 |
+| App | Drizzle parameterized queries | always — never concatenate into SQL |
+| App | React's default escaping | never use `dangerouslySetInnerHTML` |
+
+### Forbidden patterns (defense-in-depth)
+
+- Concatenating user input into SQL = blocker (Drizzle does this for you, don't bypass).
+- `dangerouslySetInnerHTML` = blocker.
+- Storing PII (names, emails, phones) = blocker — anonymous-only by design (rule #5).
+- Building our own auth layer instead of staying account-less = blocker.
+- Logging session IDs in plaintext to a third-party log drain = blocker.
+
+### Things we explicitly accept
+
+- Anyone can register a court with any name/location. No verification. Document this is intentional in v1; revisit if abuse appears.
+- Anyone can sign anyone out (community honor system). Trust loss is bounded — worst case the queue is wrong, which is the failure mode we already accept.
+- Court data is public and scrape-able by humans. robots.txt is best-effort against AI training scrapers; doesn't stop bad actors.
+
+### When new features land, ask
+
+1. Does this take user input? If so, is it validated by a `createServerFn` validator?
+2. Does this write to the DB? If so, is it rate-limited (per-session and per-IP)?
+3. Does this render user input? If so, is it going through React (auto-escaped) or am I touching `dangerouslySetInnerHTML`?
+4. Does this expose any PII or non-public data? If yes, **stop** — that's a violation of the anonymity principle.
+
 ## Open decisions
 
 - **Domain name**.

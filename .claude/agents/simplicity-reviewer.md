@@ -87,6 +87,16 @@ Authoritative migration playbook: [`migrations/README.md`](../../migrations/READ
 - A `package.json` script that calls `wrangler … --remote`, `wrangler deploy`, or anything that touches production D1 or deploys the Worker = blocker. Production ops run exclusively from Workers Builds (issue #5). The previous `deploy`, `db:migrate:prod`, and `db:status:prod` scripts were intentionally removed; do not reintroduce them.
 - Documentation that instructs a human to run `wrangler … --remote` from their laptop as a routine step = blocker. Read-only inspection (`migrations list --remote`, `execute --remote` with a SELECT) is fine.
 
+### Security (see CLAUDE.md → Security posture)
+- `dangerouslySetInnerHTML` anywhere = blocker.
+- Concatenating user input into raw SQL strings = blocker. Drizzle parameterizes — use it.
+- A server function that accepts user input without a `.validator(...)` clause = blocker.
+- A mutating server function (insert/update/delete) without per-session or per-IP rate limiting once the corresponding feature lands (issues #6, #8, #9) = blocker. Pre-feature stubs are exempt.
+- Storing PII (name beyond court name, email, phone, location coords below a generic neighborhood) = blocker. The app is anonymous-only by design.
+- Logging session IDs to any external service (log drain, analytics, error tracker) in raw form = blocker. Hash or omit.
+- Removing AI-crawler entries from `public/robots.txt` = blocker unless replacing with stricter blocks.
+- A new third-party script in `__root.tsx` or anywhere served to the browser = blocker without explicit reason in PR (analytics, tracking pixels, etc. all fail this — we don't have any).
+
 ### Friction
 - Did a user-facing flow grow a confirmation, captcha, or extra tap? Is there a principle-level reason in the diff?
 - Default position: friction = bad.

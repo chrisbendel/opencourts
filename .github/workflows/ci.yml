@@ -1,0 +1,46 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # pnpm version comes from package.json `packageManager` field — do not
+      # also set `version:` here (action errors on duplicate sources).
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+        env:
+          # Avoid sharp's postinstall download in CI (see commit 8954d090).
+          SHARP_IGNORE_GLOBAL_LIBVIPS: "1"
+
+      # Verify the committed worker-configuration.d.ts matches wrangler.jsonc.
+      # Catches PRs that add a binding but forget `pnpm cf-typegen`.
+      - name: Check worker types are fresh
+        run: pnpm cf-typegen:check
+
+      # Apply migrations to a fresh local D1. Required for the schema drift
+      # test, which queries the local SQLite file.
+      - name: Apply D1 migrations (local)
+        run: pnpm db:migrate
+
+      - name: Typecheck
+        run: pnpm exec tsc --noEmit
+
+      # Includes src/db/schema.test.ts drift check (Drizzle schema ↔ migrations).
+      - name: Test
+        run: pnpm test
+
+      - name: Lint + format
+        run: pnpm check

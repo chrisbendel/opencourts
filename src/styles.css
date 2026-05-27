@@ -170,6 +170,16 @@ ul.bare li {
   color: var(--muted);
 }
 
+/* Form/inline error */
+.error {
+  color: #b3261e;
+  background: #fdecea;
+  border: 1px solid #f5c2c0;
+  border-radius: var(--radius);
+  padding: 0.6rem 0.75rem;
+  margin: 0;
+}
+
 /* Print sheet baseline (refined in #11) */
 @media print {
   body {

@@ -13,10 +13,14 @@
     "format": "biome format",
     "lint": "biome lint",
     "check": "biome check",
+    "typecheck": "pnpm cf-typegen && tsc --noEmit",
+    "cf-typegen": "npx wrangler types",
+    "cf-typegen:check": "npx wrangler types --check",
     "db:new": "npx wrangler d1 migrations create opencourts",
     "db:migrate": "npx wrangler d1 migrations apply opencourts --local",
     "db:status": "npx wrangler d1 migrations list opencourts --local",
-    "db:reset": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate",
+    "db:seed": "npx wrangler d1 execute opencourts --local --file=./seeds/sample_courts.sql",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate && pnpm db:seed",
     "db:check": "vitest run src/db/schema.test.ts"
   },
   "dependencies": {
@@ -33,8 +37,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.5",
-    "@cloudflare/workers-types": "^4.20251101.0",
-    "@tanstack/devtools-vite": "latest",
+"@tanstack/devtools-vite": "latest",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/react": "^16.3.0",
     "@types/node": "^22.10.2",

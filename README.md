@@ -1,217 +1,100 @@
-Welcome to your new TanStack Start app! 
+# OpenCourts
 
-# Getting Started
+Anonymous, friction-free queue tracker for public tennis courts. Scan a QR on the fence, see who's playing, tap to check in. No accounts, no app, no nonsense.
 
-To run this application:
+## Why this exists
 
-```bash
-npm install
-npm run dev
-```
+You show up to a public court. You don't know if it's free, how many people are waiting, or how long the current players will be. Today you stand around and guess. OpenCourts is a tiny shared signal — a QR code on the fence, a web page, an auto-expiring queue. That's it.
 
-# Building For Production
+Full problem statement and principles: [VISION.md](./VISION.md). Project conventions (hard rules, security, UX, Drizzle guardrails): [CLAUDE.md](./CLAUDE.md).
 
-To build this application for production:
+## Stack
 
-```bash
-npm run build
-```
+| Layer | Choice |
+|---|---|
+| Framework | [TanStack Start](https://tanstack.com/start) (Vite + React, file-based routes, `createServerFn`) |
+| Hosting | Cloudflare Workers + Static Assets |
+| Database | Cloudflare D1 (managed SQLite, request-scoped `env.DB` binding) |
+| ORM (runtime only) | [Drizzle](https://orm.drizzle.team) — `drizzle-orm/d1`. **No `drizzle-kit`.** |
+| Migrations | Plain SQL in `migrations/`, applied via `wrangler d1 migrations apply` |
+| Styling | Plain CSS in `src/styles.css`. No Tailwind, no CSS-in-JS, no UI lib. |
+| Package manager | pnpm |
+| Lint/format | [Biome](https://biomejs.dev/) |
 
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
-
-```bash
-npm run test
-```
-
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `npm install @tailwindcss/vite tailwindcss -D`
-
-## Linting & Formatting
-
-This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
-
+## Local dev
 
 ```bash
-npm run lint
-npm run format
-npm run check
+pnpm install
+pnpm db:migrate        # apply migrations to local D1 (.wrangler/state/)
+pnpm dev               # http://localhost:4040
 ```
 
+## Commands
 
-## Deploy to Cloudflare Workers
+| Script | What it does |
+|---|---|
+| `pnpm dev` | Vite dev server on :4040 |
+| `pnpm build` | Production build |
+| `pnpm test` | Vitest run (includes schema ↔ migrations drift check) |
+| `pnpm check` | Biome lint + format check |
+| `pnpm typecheck` | Regen worker types + `tsc --noEmit` |
+| `pnpm cf-typegen` | Regenerate `worker-configuration.d.ts` from `wrangler.jsonc` |
+| `pnpm cf-typegen:check` | Verify committed worker types are fresh (used in CI) |
+| `pnpm db:new <name>` | Create a new numbered migration file |
+| `pnpm db:migrate` | Apply migrations to **local** D1 |
+| `pnpm db:status` | List applied migrations on local D1 |
+| `pnpm db:reset` | Wipe local D1 and reapply all migrations |
+| `pnpm db:check` | Drift test: Drizzle schema ↔ migrations |
 
-This project uses the Cloudflare Vite plugin (configured in `vite.config.ts`) and `wrangler.jsonc`:
+There are no `--remote` or `deploy` scripts on purpose. Production changes only flow through CI (see below).
 
-1. Install Wrangler: `npm install -g wrangler`
-2. Authenticate: `wrangler login`
-3. Deploy: `npx wrangler deploy`
+## Schema changes
 
-For production env vars, run `wrangler secret put MY_VAR` for each secret listed in `.env.example`. Public (non-secret) vars go in `wrangler.jsonc` under `vars`.
+Source of truth is split deliberately:
 
-KV, D1, R2, and Durable Object bindings are configured in `wrangler.jsonc` — see https://developers.cloudflare.com/workers/wrangler/configuration/.
+- `src/db/schema.ts` — TypeScript types (Drizzle table builders)
+- `migrations/NNNN_*.sql` — actual database structure
 
+Both must change together in the same PR. The drift check in `pnpm db:check` enforces it. See [migrations/README.md](./migrations/README.md) for the full playbook (adding tables, nullable columns, backfills, indexes, etc.).
 
+Quick loop:
 
-## Routing
-
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
-
-### Adding A Route
-
-To add a new route to your application just add a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
+```bash
+pnpm db:new add_something      # creates migrations/000N_add_something.sql
+# edit the SQL file
+# edit src/db/schema.ts to match
+pnpm db:migrate                # apply locally
+pnpm db:check                  # verify they agree
 ```
 
-Then anywhere in your JSX you can use it like so:
+Forward-only — no `down` migrations. Bad migration? Fix with another forward migration. Local rollback = `pnpm db:reset`.
 
-```tsx
-<Link to="/about">About</Link>
+## Deployment
+
+Production deploys are handled by **Cloudflare Workers Builds** (CF-native CI). Every push to `main` triggers:
+
+1. `pnpm install --frozen-lockfile`
+2. `pnpm db:migrate` (ephemeral local D1, for drift test)
+3. `pnpm db:check` (schema ↔ migrations drift gate)
+4. `pnpm build` (Vite build)
+5. `npx wrangler d1 migrations apply opencourts --remote` (apply to prod D1)
+6. `npx wrangler deploy` (ship the Worker)
+
+**No deploys from a laptop.** No `--remote` or `deploy` scripts in package.json by design. If you find yourself reaching for `wrangler … --remote` locally, stop and open a PR instead.
+
+PR-side checks (typecheck, tests, drift, lint) run on GitHub Actions — see [.github/workflows/ci.yml](./.github/workflows/ci.yml).
+
+## Layout
+
+```
+src/
+├── routes/           TanStack file-based routes (flat dotted form: c.$courtId.tsx)
+├── server/           server functions — only consumer of the Drizzle instance
+├── db/               Drizzle schema + client factory (no app code imports drizzle-orm/d1 directly)
+└── styles.css        all styling lives here
+migrations/           plain SQL, numbered, append-only
+public/               static assets (favicon, manifest, robots.txt)
+wrangler.jsonc        Worker config (D1 binding, observability, compat date)
 ```
 
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+More project rules and rationale: [CLAUDE.md](./CLAUDE.md).

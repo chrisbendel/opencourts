@@ -6,6 +6,23 @@
 		"nodejs_compat"
 	],
 	"main": "@tanstack/react-start/server-entry",
+	// Source of truth — every `wrangler deploy` overwrites the CF dashboard
+	// observability settings with the values below. Edit here, not the UI.
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+		"logs": {
+			"enabled": true,
+			"head_sampling_rate": 1,
+			"persist": true,
+			"invocation_logs": true
+		},
+		"traces": {
+			"enabled": false,
+			"head_sampling_rate": 1,
+			"persist": true
+		}
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",

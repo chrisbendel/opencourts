@@ -19,7 +19,8 @@
     "db:new": "npx wrangler d1 migrations create opencourts",
     "db:migrate": "npx wrangler d1 migrations apply opencourts --local",
     "db:status": "npx wrangler d1 migrations list opencourts --local",
-    "db:reset": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate",
+    "db:seed": "npx wrangler d1 execute opencourts --local --file=./seeds/sample_courts.sql",
+    "db:reset": "rm -rf .wrangler/state/v3/d1 && pnpm db:migrate && pnpm db:seed",
     "db:check": "vitest run src/db/schema.test.ts"
   },
   "dependencies": {

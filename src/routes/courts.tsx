@@ -1,12 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/courts')({ component: Courts })
+export const Route = createFileRoute("/courts")({ component: Courts });
 
 function Courts() {
-  return (
-    <main>
-      <h1>Browse courts</h1>
-      <p className="muted">Under construction.</p>
-    </main>
-  )
+	return (
+		<main>
+			<h1>Browse courts</h1>
+			<p className="muted">Under construction.</p>
+		</main>
+	);
 }

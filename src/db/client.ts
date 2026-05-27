@@ -1,5 +1,5 @@
-import { drizzle } from 'drizzle-orm/d1'
-import * as schema from './schema'
+import { drizzle } from "drizzle-orm/d1";
+import * as schema from "./schema";
 
 /**
  * Build a per-request Drizzle instance bound to the given D1 database.
@@ -13,7 +13,7 @@ import * as schema from './schema'
  * Never store the result on a module-level variable.
  */
 export function makeDb(d1: D1Database) {
-  return drizzle(d1, { schema })
+	return drizzle(d1, { schema });
 }
 
-export type Db = ReturnType<typeof makeDb>
+export type Db = ReturnType<typeof makeDb>;

@@ -20,8 +20,11 @@ export const queueEntries = sqliteTable("queue_entries", {
 		.notNull()
 		.references(() => courts.id, { onDelete: "cascade" }),
 	sessionId: text("session_id").notNull(),
-	partySize: integer("party_size").notNull().default(1),
 	status: text("status", { enum: ["waiting", "playing"] }).notNull(),
+	// Requested play length. Set at check-in; applied to expires_at on promotion.
+	durationMin: integer("duration_min").notNull().default(90),
+	// Insertion order — FIFO key for waiter promotion.
+	joinedAt: integer("joined_at").notNull().default(sql`(unixepoch())`),
 	startedAt: integer("started_at"),
 	expiresAt: integer("expires_at"),
 });

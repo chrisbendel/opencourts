@@ -1,9 +1,7 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import type { CourtEntry, CourtState } from "#/server/queue";
-import { checkIn, getCourt, signOut } from "#/server/queue";
-
-const DURATIONS = [30, 60, 90, 120, 150, 180];
+import type { CourtEntry } from "#/server/queue";
+import { checkIn, DURATIONS, getCourt, signOut } from "#/server/queue";
 
 // Refresh cadence for the court page. The queue changes on human timescales
 // (minutes), so a slow poll reads as "live" while keeping invocations near
@@ -252,5 +250,3 @@ function CheckInForm({
 		</section>
 	);
 }
-
-export type { CourtState };

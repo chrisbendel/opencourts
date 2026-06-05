@@ -19,6 +19,7 @@ These are non-negotiable. If a request would violate one, **stop and flag the co
 7. **Friction is the enemy.** A new code path that adds a tap, a confirmation, or a wait time on the user's main flow needs an explicit principle-level reason. Default answer is no.
 8. **Mobile-first, dead simple.** Phone is the primary device — most landings come from a QR scan. Design for 375×667 first. Big tap targets (≥44px). One column. One primary action per screen. No sidebars, no nested modals, no hover-only interactions, no drag-drop. Desktop is whatever mobile gives you with more whitespace.
 9. **Production ops happen only through CI/CD.** No deploys from a laptop. No remote D1 migrations from a laptop. The package.json scripts intentionally have no `--remote` or `deploy` shortcuts. All prod changes flow through Workers Builds on push to `main` (issue #5). If you find yourself reaching for `wrangler … --remote` directly, stop and ask whether the change should go through a PR instead.
+10. **Claude never touches git.** Do **not** run `git add`, `git commit`, `git push`, `git stage`, branch, or any other git-mutating command — ever, even when asked to "commit this" or "wrap up". The user stages, commits, and pushes everything themselves. Claude's job ends at writing/verifying files (build/typecheck/lint/tests are fine). When work is done, summarize what changed and stop; let the user handle version control. Read-only inspection (`git status`, `git diff`, `git log`) is fine.
 
 ## Stack (locked)
 

@@ -6,11 +6,27 @@ import { type Db, makeDb } from "#/db/client";
 import { courts, queueEntries } from "#/db/schema";
 import { ensureSessionId, getSessionId } from "#/server/session";
 
-// Allowed duration steps (minutes). Mirrors the picker in the UI.
-const DURATIONS = [30, 60, 90, 120, 150, 180];
+// Allowed duration steps (minutes). Source of truth for both the check-in
+// validator and the picker UI (imported by the court route).
+export const DURATIONS = [30, 60, 90, 120, 150, 180];
 
-function now(): number {
+// Unix seconds. Shared clock for server fns.
+export function now(): number {
 	return Math.floor(Date.now() / 1000);
+}
+
+// ─── tiny validation primitives (no dep; CLAUDE.md rule #3) ──────────────────
+function asObject(raw: unknown): Record<string, unknown> {
+	if (!raw || typeof raw !== "object") throw new Error("Invalid input");
+	return raw as Record<string, unknown>;
+}
+
+// An id-shaped string field: present, 1–64 chars.
+function reqId(value: unknown, label: string): string {
+	if (typeof value !== "string" || value.length < 1 || value.length > 64) {
+		throw new Error(`Invalid ${label}`);
+	}
+	return value;
 }
 
 // ─── lazy promotion ─────────────────────────────────────────────────────────
@@ -24,8 +40,13 @@ function now(): number {
 //      status='playing', started_at=now, expires_at=now + duration_min*60.
 //
 // Runs inside getCourt() and before every check-in so reads/writes see fresh
-// state.
-async function promote(db: Db, courtId: string, numCourts: number) {
+// state. Returns the number of free courts after promotion, so callers don't
+// have to re-count the playing entries it already inspected.
+async function promote(
+	db: Db,
+	courtId: string,
+	numCourts: number,
+): Promise<number> {
 	const ts = now();
 
 	await db
@@ -50,7 +71,7 @@ async function promote(db: Db, courtId: string, numCourts: number) {
 		.all();
 
 	const free = numCourts - playing.length;
-	if (free <= 0) return;
+	if (free <= 0) return 0;
 
 	const waiters = await db
 		.select({ id: queueEntries.id, durationMin: queueEntries.durationMin })
@@ -65,7 +86,7 @@ async function promote(db: Db, courtId: string, numCourts: number) {
 		.limit(free)
 		.all();
 
-	if (waiters.length === 0) return;
+	if (waiters.length === 0) return free;
 
 	const updates = waiters.map((w) =>
 		db
@@ -79,6 +100,8 @@ async function promote(db: Db, courtId: string, numCourts: number) {
 	);
 	// D1 atomic statement batch — promotions land together.
 	await db.batch(updates as [(typeof updates)[number], ...typeof updates]);
+
+	return free - waiters.length;
 }
 
 // ─── getCourt (loader) ───────────────────────────────────────────────────────
@@ -99,16 +122,8 @@ export interface CourtState {
 }
 
 function validateCourtId(raw: unknown): { courtId: string } {
-	if (!raw || typeof raw !== "object") throw new Error("Invalid input");
-	const { courtId } = raw as Record<string, unknown>;
-	if (
-		typeof courtId !== "string" ||
-		courtId.length < 1 ||
-		courtId.length > 64
-	) {
-		throw new Error("Invalid courtId");
-	}
-	return { courtId };
+	const { courtId } = asObject(raw);
+	return { courtId: reqId(courtId, "courtId") };
 }
 
 export const getCourt = createServerFn({ method: "GET" })
@@ -171,20 +186,12 @@ interface CheckInInput {
 }
 
 function validateCheckIn(raw: unknown): CheckInInput {
-	if (!raw || typeof raw !== "object") throw new Error("Invalid input");
-	const { courtId, durationMin } = raw as Record<string, unknown>;
-	if (
-		typeof courtId !== "string" ||
-		courtId.length < 1 ||
-		courtId.length > 64
-	) {
-		throw new Error("Invalid courtId");
-	}
+	const { courtId, durationMin } = asObject(raw);
 	const dur = Number(durationMin);
 	if (!DURATIONS.includes(dur)) {
 		throw new Error(`durationMin must be one of ${DURATIONS.join(", ")}`);
 	}
-	return { courtId, durationMin: dur };
+	return { courtId: reqId(courtId, "courtId"), durationMin: dur };
 }
 
 export const checkIn = createServerFn({ method: "POST" })
@@ -201,7 +208,9 @@ export const checkIn = createServerFn({ method: "POST" })
 		if (!court) throw new Error("Court not found");
 
 		// Clear expired + fill open seats before deciding this entry's status.
-		await promote(db, court.id, court.numCourts);
+		// promote() already counted the playing entries, so it hands back how
+		// many courts are free — no need to re-query.
+		const freeSeats = await promote(db, court.id, court.numCourts);
 
 		// One active entry per session per court — re-tapping shouldn't stack.
 		const mine = await db
@@ -216,19 +225,8 @@ export const checkIn = createServerFn({ method: "POST" })
 			.get();
 		if (mine) throw new Error("You're already in this court's queue");
 
-		const playing = await db
-			.select({ id: queueEntries.id })
-			.from(queueEntries)
-			.where(
-				and(
-					eq(queueEntries.courtId, court.id),
-					eq(queueEntries.status, "playing"),
-				),
-			)
-			.all();
-
 		const ts = now();
-		const seatFree = playing.length < court.numCourts;
+		const seatFree = freeSeats > 0;
 		const id = crypto.randomUUID();
 
 		await db.insert(queueEntries).values({
@@ -252,16 +250,8 @@ export const checkIn = createServerFn({ method: "POST" })
 // the next getCourt read promotes a waiter into it.
 
 function validateEntryId(raw: unknown): { entryId: string } {
-	if (!raw || typeof raw !== "object") throw new Error("Invalid input");
-	const { entryId } = raw as Record<string, unknown>;
-	if (
-		typeof entryId !== "string" ||
-		entryId.length < 1 ||
-		entryId.length > 64
-	) {
-		throw new Error("Invalid entryId");
-	}
-	return { entryId };
+	const { entryId } = asObject(raw);
+	return { entryId: reqId(entryId, "entryId") };
 }
 
 export const signOut = createServerFn({ method: "POST" })

@@ -4,7 +4,7 @@
  *   1. Structural tokens  — spacing / type / radius. Theme-independent.
  *   2. Color roles        — :root holds the default (US Open) palette.
  *   3. Theme palettes      — [data-theme="…"] overrides color roles only.
- *                            Set pre-paint by an inline script (see __root).
+ *                            Set server-side from a cookie (see __root).
  *   4. Components          — read from roles, so they reskin for free.
  *
  * Functional colors (--open, --danger) are NOT themed — a tournament palette

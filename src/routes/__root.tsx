@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { createServerFn } from "@tanstack/react-start";
-import { getCookie } from "@tanstack/react-start/server";
+import { getCookie, setCookie } from "@tanstack/react-start/server";
 import { useEffect, useRef, useState } from "react";
 
 import appCss from "../styles.css?url";
@@ -32,6 +32,24 @@ const getThemeCookie = createServerFn({ method: "GET" }).handler(() => {
 	const t = getCookie(THEME_KEY);
 	return t && THEME_IDS.includes(t) ? t : DEFAULT_THEME;
 });
+
+// Persist the chosen theme server-side so the next request's SSR renders it.
+// Done on the server (not document.cookie) for cross-browser reliability.
+const setThemeCookie = createServerFn({ method: "POST" })
+	.inputValidator((raw: unknown): string => {
+		const theme = (raw as { theme?: unknown })?.theme;
+		if (typeof theme !== "string" || !THEME_IDS.includes(theme)) {
+			throw new Error("Invalid theme");
+		}
+		return theme;
+	})
+	.handler(({ data }) => {
+		setCookie(THEME_KEY, data, {
+			path: "/",
+			maxAge: THEME_MAX_AGE,
+			sameSite: "lax",
+		});
+	});
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -92,20 +110,14 @@ function ThemePicker({
 	}
 
 	return (
-		<div
-			ref={ref}
-			className={`theme-picker${open ? " is-open" : ""}`}
-			role="radiogroup"
-			aria-label="Theme"
-		>
+		<div ref={ref} className={`theme-picker${open ? " is-open" : ""}`}>
 			{THEMES.map((t) => {
 				const active = t.id === theme;
 				return (
 					<button
 						key={t.id}
 						type="button"
-						role="radio"
-						aria-checked={active}
+						aria-pressed={active}
 						aria-label={active ? `Theme: ${t.label}. Change theme` : t.label}
 						title={t.label}
 						tabIndex={open || active ? 0 : -1}
@@ -126,10 +138,8 @@ function RootLayout() {
 	const [theme, setTheme] = useState(initialTheme);
 
 	function pick(next: string) {
-		setTheme(next);
-		// Persist for the next request's SSR. Non-httpOnly: the value isn't
-		// sensitive and only drives the palette.
-		document.cookie = `${THEME_KEY}=${next}; path=/; max-age=${THEME_MAX_AGE}; samesite=lax`;
+		setTheme(next); // instant client recolor
+		setThemeCookie({ data: { theme: next } }); // persist for next SSR
 	}
 
 	return (

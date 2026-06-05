@@ -4,6 +4,7 @@ import { and, count, desc, eq, gt } from "drizzle-orm";
 
 import { makeDb } from "#/db/client";
 import { courts, queueEntries } from "#/db/schema";
+import { now } from "#/server/queue";
 
 export interface RegisterCourtInput {
 	name: string;
@@ -70,37 +71,35 @@ export interface CourtListing {
 export const listCourts = createServerFn({ method: "GET" }).handler(
 	async (): Promise<CourtListing[]> => {
 		const db = makeDb(env.DB);
-		const now = Math.floor(Date.now() / 1000);
+		const ts = now();
 
-		const rows = await db
-			.select({
-				id: courts.id,
-				name: courts.name,
-				location: courts.location,
-				numCourts: courts.numCourts,
-			})
-			.from(courts)
-			.orderBy(desc(courts.createdAt))
-			.all();
-
-		const playing = await db
-			.select({ courtId: queueEntries.courtId, n: count() })
-			.from(queueEntries)
-			.where(
-				and(
-					eq(queueEntries.status, "playing"),
-					gt(queueEntries.expiresAt, now),
-				),
-			)
-			.groupBy(queueEntries.courtId)
-			.all();
-
-		const waiting = await db
-			.select({ courtId: queueEntries.courtId, n: count() })
-			.from(queueEntries)
-			.where(eq(queueEntries.status, "waiting"))
-			.groupBy(queueEntries.courtId)
-			.all();
+		// Three independent reads — one D1 round-trip via batch.
+		const [rows, playing, waiting] = await db.batch([
+			db
+				.select({
+					id: courts.id,
+					name: courts.name,
+					location: courts.location,
+					numCourts: courts.numCourts,
+				})
+				.from(courts)
+				.orderBy(desc(courts.createdAt)),
+			db
+				.select({ courtId: queueEntries.courtId, n: count() })
+				.from(queueEntries)
+				.where(
+					and(
+						eq(queueEntries.status, "playing"),
+						gt(queueEntries.expiresAt, ts),
+					),
+				)
+				.groupBy(queueEntries.courtId),
+			db
+				.select({ courtId: queueEntries.courtId, n: count() })
+				.from(queueEntries)
+				.where(eq(queueEntries.status, "waiting"))
+				.groupBy(queueEntries.courtId),
+		]);
 
 		const playingBy = new Map(playing.map((r) => [r.courtId, r.n]));
 		const waitingBy = new Map(waiting.map((r) => [r.courtId, r.n]));

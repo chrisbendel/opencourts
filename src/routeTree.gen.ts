@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as RegisterRouteImport } from './routes/register'
-import { Route as CourtsRouteImport } from './routes/courts'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CCourtIdRouteImport } from './routes/c.$courtId'
 import { Route as CCourtIdPrintRouteImport } from './routes/c.$courtId.print'
@@ -18,11 +17,6 @@ import { Route as CCourtIdPrintRouteImport } from './routes/c.$courtId.print'
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CourtsRoute = CourtsRouteImport.update({
-  id: '/courts',
-  path: '/courts',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -43,14 +37,12 @@ const CCourtIdPrintRoute = CCourtIdPrintRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/courts': typeof CourtsRoute
   '/register': typeof RegisterRoute
   '/c/$courtId': typeof CCourtIdRouteWithChildren
   '/c/$courtId/print': typeof CCourtIdPrintRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/courts': typeof CourtsRoute
   '/register': typeof RegisterRoute
   '/c/$courtId': typeof CCourtIdRouteWithChildren
   '/c/$courtId/print': typeof CCourtIdPrintRoute
@@ -58,28 +50,20 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/courts': typeof CourtsRoute
   '/register': typeof RegisterRoute
   '/c/$courtId': typeof CCourtIdRouteWithChildren
   '/c/$courtId/print': typeof CCourtIdPrintRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/courts' | '/register' | '/c/$courtId' | '/c/$courtId/print'
+  fullPaths: '/' | '/register' | '/c/$courtId' | '/c/$courtId/print'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/courts' | '/register' | '/c/$courtId' | '/c/$courtId/print'
-  id:
-    | '__root__'
-    | '/'
-    | '/courts'
-    | '/register'
-    | '/c/$courtId'
-    | '/c/$courtId/print'
+  to: '/' | '/register' | '/c/$courtId' | '/c/$courtId/print'
+  id: '__root__' | '/' | '/register' | '/c/$courtId' | '/c/$courtId/print'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  CourtsRoute: typeof CourtsRoute
   RegisterRoute: typeof RegisterRoute
   CCourtIdRoute: typeof CCourtIdRouteWithChildren
 }
@@ -91,13 +75,6 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/courts': {
-      id: '/courts'
-      path: '/courts'
-      fullPath: '/courts'
-      preLoaderRoute: typeof CourtsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -138,7 +115,6 @@ const CCourtIdRouteWithChildren = CCourtIdRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  CourtsRoute: CourtsRoute,
   RegisterRoute: RegisterRoute,
   CCourtIdRoute: CCourtIdRouteWithChildren,
 }

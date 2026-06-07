@@ -1,18 +1,65 @@
-/* OpenCourts — plain CSS, semantic HTML preferred. Keep small. */
+/* OpenCourts — plain CSS, semantic HTML. One file by design (CLAUDE.md).
+ *
+ * Architecture:
+ *   1. Structural tokens  — spacing / type / radius. Theme-independent.
+ *   2. Color roles        — :root holds the default (US Open) palette.
+ *   3. Theme palettes      — [data-theme="…"] overrides color roles only.
+ *                            Set server-side from a cookie (see __root).
+ *   4. Components          — read from roles, so they reskin for free.
+ *
+ * Functional colors (--open, --danger) are NOT themed — a tournament palette
+ * must never make "open" or "delete" unreadable.
+ */
 
+/* ── 1 + 2. Tokens + default palette (US Open) ─────────────────────────── */
 :root {
-  --court-blue: #2f6fb5;
-  --court-blue-deep: #1f5491;
-  --court-green: #3f8a4a;
+  /* structural */
+  --max: 42rem;
+  --radius: 4px; /* crisp, court-line clean */
+  --radius-pill: 999px;
+  --space-xs: 0.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --space-xl: 2rem;
+  --text-sm: 0.9rem;
+  --text-lg: 1.125rem;
+  --tap: 44px; /* min tap target */
+
+  /* functional — constant across themes */
   --ink: #181a1c;
   --muted: #5b6066;
   --line: #d8dde2;
-  --bg: #fafafa;
-  --max: 42rem;
-  --radius: 6px;
-  --gap: 1rem;
+  --open: #3f8a4a; /* court available */
+  --danger: #b3261e;
+
+  /* color roles — default = US Open hardcourt blue */
+  --accent: #2f6fb5;
+  --accent-deep: #1f5491;
+  --accent-contrast: #fff;
+  --bg: #f7f9fb;
 }
 
+/* ── 3. Theme palettes ─────────────────────────────────────────────────── */
+[data-theme="ao"] {
+  --accent: #0091d2; /* Australian Open sky blue */
+  --accent-deep: #0073a8;
+  --bg: #f5fafd;
+}
+
+[data-theme="rg"] {
+  --accent: #c84e26; /* Roland Garros clay */
+  --accent-deep: #a23c1c;
+  --bg: #fbf7f4;
+}
+
+[data-theme="wimbledon"] {
+  --accent: #00703c; /* Wimbledon grass green */
+  --accent-deep: #005a2f;
+  --bg: #f5f8f4;
+}
+
+/* ── 4. Base ───────────────────────────────────────────────────────────── */
 * {
   box-sizing: border-box;
 }
@@ -35,50 +82,80 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Themed app wrapper — carries [data-theme] and paints the full viewport so
+   the palette bg covers everything below the static document shell. */
+.app {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
 main {
   max-width: var(--max);
   margin-inline: auto;
-  padding: 3rem 1.25rem 4rem;
+  padding: var(--space-xl) 1.25rem 4rem;
 }
 
+/* ── Header ────────────────────────────────────────────────────────────── */
+.site-header {
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.site-header nav {
+  max-width: var(--max);
+  margin-inline: auto;
+  padding: 0 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.site-header .brand {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  text-decoration: none;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--accent-deep);
+}
+
+/* ── Typography ────────────────────────────────────────────────────────── */
 h1 {
   font-size: 2rem;
   line-height: 1.1;
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--space-sm);
   letter-spacing: -0.01em;
 }
 
 h2 {
   font-size: 1.25rem;
-  margin: 1.75rem 0 0.5rem;
+  margin: var(--space-lg) 0 var(--space-sm);
 }
 
 p {
-  margin: 0 0 1rem;
+  margin: 0 0 var(--space-md);
 }
 
 p.lead {
-  font-size: 1.125rem;
+  font-size: var(--text-lg);
   color: var(--muted);
 }
 
 a {
-  color: var(--court-blue-deep);
+  color: var(--accent-deep);
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
 
-a:hover {
-  color: var(--court-blue);
-}
-
-/* Buttons + button-styled links — 44px+ tap target (mobile-first) */
+/* ── Buttons ───────────────────────────────────────────────────────────── */
 .btn,
 button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 44px;
+  min-height: var(--tap);
   padding: 0.6rem 1.1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -95,34 +172,44 @@ button:hover {
   background: #f1f3f5;
 }
 
+/* Primary = themed accent fill. The one bold color on a screen. */
 .btn-primary {
-  background: var(--ink);
-  color: #fff;
-  border-color: var(--ink);
+  background: var(--accent);
+  color: var(--accent-contrast);
+  border-color: var(--accent);
 }
 
 .btn-primary:hover {
-  background: #000;
-  color: #fff;
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+  color: var(--accent-contrast);
+}
+
+/* Small, subordinate variant. */
+.btn-sm {
+  min-height: 36px;
+  padding: 0.35rem 0.75rem;
+  font-size: var(--text-sm);
+  flex: none;
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 1.5rem;
+  gap: var(--space-sm);
+  margin-top: var(--space-lg);
 }
 
-/* Forms */
+/* ── Forms ─────────────────────────────────────────────────────────────── */
 form {
   display: grid;
-  gap: var(--gap);
-  margin-top: 1.5rem;
+  gap: var(--space-md);
+  margin-top: var(--space-lg);
 }
 
 label {
   display: grid;
-  gap: 0.25rem;
+  gap: var(--space-xs);
   font-weight: 600;
 }
 
@@ -130,8 +217,8 @@ input,
 select,
 textarea {
   font: inherit;
-  /* 16px font + this padding clears 44px target and prevents iOS zoom-on-focus */
-  min-height: 44px;
+  /* 16px + this padding clears the 44px target and stops iOS zoom-on-focus */
+  min-height: var(--tap);
   padding: 0.6rem 0.75rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -145,17 +232,17 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  outline: 2px solid var(--court-blue);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-/* Lists */
+/* ── Lists / cards ─────────────────────────────────────────────────────── */
 ul.bare {
   list-style: none;
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 0.5rem;
+  gap: var(--space-sm);
 }
 
 ul.bare li {
@@ -163,16 +250,146 @@ ul.bare li {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: #fff;
+  /* Queue row: label left, action right; wraps so the 44px button survives. */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
 }
 
-/* Subtle muted text */
+/* A list item that is a single tappable link (the court registry) fills the
+   row — bigger touch target. */
+ul.bare li > a {
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+}
+
+ul.bare li > a strong {
+  color: var(--accent-deep);
+}
+
+/* ── Status ────────────────────────────────────────────────────────────── */
+/* Court availability. Pill so it reads as a state chip, not body text. */
+.status-open,
+.status-full {
+  display: inline-block;
+  margin-top: var(--space-xs);
+  padding: 0.1rem 0.55rem;
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.status-open {
+  color: #235f2c;
+  background: #e6f3e8;
+}
+
+.status-full {
+  color: var(--muted);
+  background: #eef0f2;
+}
+
+/* ── List head (home) ──────────────────────────────────────────────────── */
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+/* ── Theme picker ──────────────────────────────────────────────────────── */
+/* Tournament "balls" — pick by color. 44px tap area, 20px visible dot.
+   Collapsed (default): only the current theme's ball shows. Open: the others
+   expand into view. All four stay mounted so width/opacity animate. */
+.theme-picker {
+  display: flex;
+  align-items: center;
+}
+
+.swatch {
+  width: var(--tap);
+  height: var(--tap);
+  min-height: var(--tap);
+  margin-left: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.2s ease, margin 0.2s ease, opacity 0.2s ease, transform
+    0.2s ease;
+}
+
+.swatch:hover {
+  background: transparent;
+}
+
+/* Collapse the non-current balls until the picker is opened. */
+.theme-picker:not(.is-open) .swatch:not(.is-active) {
+  width: 0;
+  margin-left: 0;
+  opacity: 0;
+  transform: scale(0.4);
+  pointer-events: none;
+}
+
+.swatch::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border-radius: var(--radius-pill);
+  background: var(--swatch);
+  box-shadow: 0 0 0 1px var(--line);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.swatch:hover::before {
+  transform: scale(1.12);
+}
+
+.swatch.is-active::before {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+
+/* Each swatch always shows its own tournament color, regardless of active
+   theme — so they're set explicitly, not via the themed --accent role. */
+.swatch-us-open {
+  --swatch: #2f6fb5;
+}
+.swatch-ao {
+  --swatch: #0091d2;
+}
+.swatch-rg {
+  --swatch: #c84e26;
+}
+.swatch-wimbledon {
+  --swatch: #00703c;
+}
+
+/* Smooth recolor when switching themes. */
+.app,
+.brand,
+.btn-primary,
+a {
+  transition: background-color 0.25s ease, border-color 0.25s ease, color
+    0.2s ease;
+}
+
+/* ── Utilities ─────────────────────────────────────────────────────────── */
 .muted {
   color: var(--muted);
 }
 
-/* Form/inline error */
 .error {
-  color: #b3261e;
+  color: var(--danger);
   background: #fdecea;
   border: 1px solid #f5c2c0;
   border-radius: var(--radius);
@@ -180,7 +397,20 @@ ul.bare li {
   margin: 0;
 }
 
-/* Print sheet baseline (refined in #11) */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* ── Print (QR sheet) ──────────────────────────────────────────────────── */
 @media print {
   body {
     background: #fff;
